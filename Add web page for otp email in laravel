@@ -1,0 +1,181 @@
+Routes->home
+<?php
+
+use App\Http\Controllers\Frontend\HomeController;
+use App\Http\Controllers\Frontend\TermsController;
+use App\Http\Controllers\Frontend\OtpemailController;
+use Tabuna\Breadcrumbs\Trail;
+
+/*
+ * Frontend Controllers
+ * All route names are prefixed with 'frontend.'.
+ */
+Route::get('/', [HomeController::class, 'index'])
+    ->name('index')
+    ->breadcrumbs(function (Trail $trail) {
+        $trail->push(__('Home'), route('frontend.index'));
+    });
+
+Route::get('terms', [TermsController::class, 'index'])
+    ->name('pages.terms')
+    ->breadcrumbs(function (Trail $trail) {
+        $trail->parent('frontend.index')
+            ->push(__('Terms & Conditions'), route('frontend.pages.terms'));
+    });
+
+    Route::get('otpemail', [OtpemailController::class, 'index'])
+    ->name('pages.otpemail')
+    ->breadcrumbs(function (Trail $trail) {
+        $trail->parent('frontend.index')
+        ->push(__('QR Email'), route('frontend.pages.otpemail'));
+    });
+  
+
+    Route::post('sendOTPEmailE', [OtpemailController::class, 'sendOTPEmailE'])->name('sendOTPEmailE');
+
+    // Route::get("/otpverify",function(){
+    //     return view('otpverify');
+    // });
+
+    Route::get('otpverify', [OtpemailController::class, 'viewverifyotp']);
+    Route::post('submitotp', [OtpemailController::class, 'submitotp'])->name('submitotp');
+    
+    Route::get('test', [OtpemailController::class, 'test']);
+    
+    
+    Frontend->pages->otpverify
+    
+    @extends('frontend.layouts.app')
+@section('content')
+    <div class="container py-4">
+        <div class="row justify-content-center">
+            <div class="col-md-12">
+                <x-frontend.card>
+                    <x-slot name="header">
+                        @lang('Your Otp Is Send On Your Email')
+                    </x-slot>
+                    <x-slot name="body">
+                    <x-forms.post :action="route('frontend.submitotp')">
+                      <div class="form-group">
+                        <label for="exampleInputEmail1">OTP</label>
+                        <input type="text" name="otp" class="form-control" aria-describedby="emailHelp" placeholder="Enter your Otp" required>
+                        <small id="emailHelp" class="form-text text-muted">We'll never share your otp with anyone else.</small>
+                      </div>
+                      <button type="submit" class="btn btn-primary">Submit</button>
+                    </x-form>
+                    </x-slot>
+                </x-frontend.card>
+            </div><!--col-md-10-->
+        </div><!--row-->
+    </div><!--container-->
+@endsection
+
+Model->otp_data
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class otp_data extends Model
+{
+    use HasFactory;
+    public $timestamps=false;
+}
+
+Controller->OtpemailController
+
+<?php
+
+namespace App\Http\Controllers\Frontend;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use App\Models\otp_data;
+/**
+ * Class OtpemailController.
+ */
+class OtpemailController
+{
+    /**
+     * @return \Illuminate\Contracts\Foundation\Application|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\View\View
+     */
+    public function index()
+    {
+        return view('frontend.pages.otpemail');
+    }
+
+    public function sendOTPEmailE(Request $request){
+      $data = $request->all();
+      $otp = random_int(100000, 999999);
+      try{
+        $email = $data['email'];
+        $token = $data['_token'];
+      
+        $otp_table = new otp_data();
+      
+        $otp_table->email=$email;
+        $otp_table->token=$token;
+        $otp_table->otp=$otp;
+        $otp_table->save();
+       return redirect('otpverify');
+      }
+      catch(Execption $e){
+        dd($e);
+      }
+    }
+
+
+    public function viewverifyotp()
+    {
+      return view('frontend.pages.otpverify');
+    }
+
+
+    public function submitotp(Request $request)
+    {
+      $data = $request->all();
+      try{
+      $otp = $data['otp'];
+      $data = DB::select("select otp from otp_datas where otp='$otp'");
+       $count = count($data);
+       if($count >0){
+        return view('frontend.pages.test');
+       }
+      }
+      catch(Execption $e){
+        dd($e);
+      }
+    }
+}
+
+Frontend->pages->otpemail.blade.php
+
+@extends('frontend.layouts.app')
+
+
+
+@section('content')
+    <div class="container py-4">
+        <div class="row justify-content-center">
+            <div class="col-md-12">
+                <x-frontend.card>
+                    <x-slot name="header">
+                        @lang('Enter Email for QR Code')
+                    </x-slot>
+                    <x-slot name="body">
+                    <x-forms.post :action="route('frontend.sendOTPEmailE')">
+                      <div class="form-group">
+                        <label for="exampleInputEmail1">Email address</label>
+                        <input type="email" name="email" class="form-control" id="exampleInputEmail1" aria-describedby="emailHelp" placeholder="Enter email">
+                        <small id="emailHelp" class="form-text text-muted">We'll never share your email with anyone else.</small>
+                      </div>
+                      <button type="submit" class="btn btn-primary">Submit</button>
+                    </x-form>
+                    </x-slot>
+                </x-frontend.card>
+            </div><!--col-md-10-->
+        </div><!--row-->
+    </div><!--container-->
+@endsection
